@@ -1,8 +1,9 @@
 import subprocess 
 import tempfile
 import re
+import pickle
 
-WORDLIST_PATH = "wordlist_new.txt"
+WORDLIST_PATH = "familia_romana_wordlist.txt"
 WWORDS_PATH = "/home/laptop/Downloads/words"
 ALREADY_DEFINED_PATH = "/home/laptop/prog/exodus_book/lexicon_nomacros.tex"
 
@@ -74,13 +75,17 @@ def main():
     f.close()
 
     lexicon = load_lexicon(ALREADY_DEFINED_PATH)
-    lexicon = map(lambda w: list(get_word_forms(w)), lexicon)
-    lexicon = filter(lambda w: w != [], lexicon)
+    lexicon = map(lambda w: get_word_forms(w), lexicon)
+    lexicon = filter(lambda w: w != None, lexicon)
     lexicon = map(lambda w: w[0], lexicon)
     lexicon = list(lexicon)
     lexicon.sort()
 
     word_list = clean_list(words)
+    pfile = open("pickled_words.pkl", "wb")
+    pickle.dump(pfile, word_list)
+    pfile.close()
+    exit()
     sentence = "10 Ait Moyses : Obsecro, Domine, non sum eloquens ab heri et nudiustertius : et ex quo locutus es ad servum tuum, impeditioris et tardioris linguæ sum. 11 Dixit Dominus ad eum : Quis fecit os hominis ? aut quis fabricatus est mutum et surdum, videntem et cæcum ? nonne ego ? 12 Perge, igitur, et ego ero in ore tuo : doceboque te quid loquaris. 13 At ille : Obsecro, inquit, Domine, mitte quem missurus es. 14 Iratus Dominus in Moysen, ait : Aaron frater tuus Levites, scio quod eloquens sit : ecce ipse egreditur in occursum tuum, vidensque te lætabitur corde. 15 Loquere ad eum, et pone verba mea in ore ejus : et ego ero in ore tuo, et in ore illius, et ostendam vobis quid agere debeatis. 16 Ipse loquetur pro te ad populum, et erit os tuum : tu autem eris ei in his quæ ad Deum pertinent. 17 Virgam quoque hanc sume in manu tua, in qua facturus es signa. 18 Abiit Moyses, et reversus est ad Jethro socerum suum, dixitque ei : Vadam et revertar ad fratres meos in Ægyptum, ut videam si adhuc vivant. Cui ait Jethro : Vade in pace.  "
     sentence = sentence.replace(".","")
     sentence = sentence.replace(",","")
