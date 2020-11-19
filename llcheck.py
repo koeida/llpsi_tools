@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import re
 import pickle
+import fileinput
 
 WORDLIST_PATH = "familia_romana_wordlist.txt"
 WWORDS_PATH = "/home/laptop/Downloads/words"
@@ -17,8 +18,15 @@ def load_lexicon(path):
     lexicon_lines = map(lambda l: l.replace(":",""), lexicon_lines)
     lexicon_lines = map(lambda l: l.replace("}",""), lexicon_lines)
     lexicon_lines = map(lambda l: l.split("=="), lexicon_lines)
-    lexicon_lines = map(lambda l: re.search(r'[a-z]*', l[0]).group(0), lexicon_lines)
-    return list(lexicon_lines)
+    lexicon_lines = map(lambda l: (re.search(r'[a-z]*', l[0]).group(0), l[1]), lexicon_lines)
+    ldict = {}
+    for l in lexicon_lines:
+        if l[0] not in ldict:
+            form = get_word_forms(l[0])
+            if form != None:
+                form = form[0]
+            ldict[form] = (l[0], l[1])
+    return ldict
 
 def first(f, l):
     for x in l:
@@ -53,44 +61,69 @@ def check_word(word_list, word):
     word = word.replace("æ","ae")
     word = word.replace("Æ", "Ae")
     forms = get_word_forms(word)
+    if forms == None:
+        return "proper/unknown"
     for f in forms:
         if f in word_list:
-            return True
-    return False
+            return "yes"
+    return "no"
 
 def in_lexicon(lexicon, word):
     forms = get_word_forms(word)
-    for f in forms:
-        if f in lexicon:
-            return True
+    if forms == None:
+        return False
+    return forms[0] in lexicon
+
+def trim_text(text):
+    text = text.replace(".","")
+    text = text.replace(",","")
+    text = text.replace(":","")
+    text = text.replace(";","")
+    text = text.replace("?","")
+    text = text.replace("æ","ae")
+    return text
+
+def undipth(text):
+    return text.replace("æ","ae")
+
+def lexize(text, lexicon, wordlist):
+    text = text.split()
+    for word in text:
+        if word[-1] in ".,;":
+            wcheck = undipth(word[:-1])
         else:
-            if word == "comedere":
-                print("%s not in lexicon" % f)
-                exit()
-    return False
+            wcheck = undipth(word)
+        if re.search(r'[a-zA-Z]*', wcheck).group(0) == wcheck:
+            forms = get_word_forms(wcheck)
+            if wcheck not in ["in", "non"] and forms != None and forms[0] in lexicon:
+                dict_form, definition = lexicon[forms[0]]
+                mnote = '\\mpp{%s:}{%s}' % (dict_form, definition)
+                print(mnote + word, end=" ")
+            else:
+                if check_word(wordlist, word) == "no":
+                    print('\\mpp{????}{????}%s' % word, end=" ")
+                else:
+                    print(word, end=" ")
+        else:
+            print(word, end=" ")
+     
+
 
 def main():
     f = open(WORDLIST_PATH, "r")
     words = f.readlines()
     f.close()
 
-    lexicon = load_lexicon(ALREADY_DEFINED_PATH)
-    lexicon = map(lambda w: get_word_forms(w), lexicon)
-    lexicon = filter(lambda w: w != None, lexicon)
-    lexicon = map(lambda w: w[0], lexicon)
-    lexicon = list(lexicon)
-    lexicon.sort()
+    ldict = load_lexicon(ALREADY_DEFINED_PATH)
 
-    word_list = clean_list(words)
-    pfile = open("pickled_words.pkl", "wb")
-    pickle.dump(pfile, word_list)
-    pfile.close()
+    #word_list = clean_list(words)
+    #pickle.dump(word_list, open("words.p", "wb"))
+    word_list = pickle.load(open("words.p", "rb"))
+
+    sentence = " ".join(fileinput.input())
+    lexize(sentence, ldict, word_list)
     exit()
-    sentence = "10 Ait Moyses : Obsecro, Domine, non sum eloquens ab heri et nudiustertius : et ex quo locutus es ad servum tuum, impeditioris et tardioris linguæ sum. 11 Dixit Dominus ad eum : Quis fecit os hominis ? aut quis fabricatus est mutum et surdum, videntem et cæcum ? nonne ego ? 12 Perge, igitur, et ego ero in ore tuo : doceboque te quid loquaris. 13 At ille : Obsecro, inquit, Domine, mitte quem missurus es. 14 Iratus Dominus in Moysen, ait : Aaron frater tuus Levites, scio quod eloquens sit : ecce ipse egreditur in occursum tuum, vidensque te lætabitur corde. 15 Loquere ad eum, et pone verba mea in ore ejus : et ego ero in ore tuo, et in ore illius, et ostendam vobis quid agere debeatis. 16 Ipse loquetur pro te ad populum, et erit os tuum : tu autem eris ei in his quæ ad Deum pertinent. 17 Virgam quoque hanc sume in manu tua, in qua facturus es signa. 18 Abiit Moyses, et reversus est ad Jethro socerum suum, dixitque ei : Vadam et revertar ad fratres meos in Ægyptum, ut videam si adhuc vivant. Cui ait Jethro : Vade in pace.  "
-    sentence = sentence.replace(".","")
-    sentence = sentence.replace(",","")
-    sentence = sentence.replace(":","")
-    sentence = sentence.replace("?","")
+    sentence = trim_text(sentence)
     results = []
     for w in list(set(sentence.split())):
         try:
@@ -98,7 +131,7 @@ def main():
             continue
         except:
             res = check_word(word_list, w)
-            if res == False:
+            if res == "no":
                 if in_lexicon(lexicon, w):
                     w += "*"
                 results.append(w)
@@ -107,5 +140,5 @@ def main():
         print(r)
 
 
-
-main()
+if __name__ == "__main__":
+    main()
