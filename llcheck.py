@@ -6,26 +6,39 @@ import fileinput
 
 WORDLIST_PATH = "familia_romana_wordlist.txt"
 WWORDS_PATH = "/home/laptop/Downloads/words"
-ALREADY_DEFINED_PATH = "/home/laptop/prog/exodus_book/lexicon_nomacros.tex"
+#ALREADY_DEFINED_PATH = "/home/laptop/prog/exodus_book/lexicon_nomacros.tex"
+ALREADY_DEFINED_PATH = "/home/laptop/prog/exodus_book/lexicon.tex"
 
 flatten = lambda t: [item for sublist in t for item in sublist]
 
+def demacronize(s):
+    s = s.replace("ā", "a")
+    s = s.replace("ē", "e")
+    s = s.replace("ī", "i")
+    s = s.replace("ō", "o")
+    s = s.replace("ū", "u")
+    return s
+
 def load_lexicon(path):
+    def cleanup(s):
+        s = s[10:].strip()
+        s = s.replace("{","==")
+        s = s.replace(":","")
+        s = s.replace("}","")
+        s = s.split("==")
+        return s
+
     f = open(path)
     lexicon_lines = f.readlines()
-    lexicon_lines = map(lambda l: l[10:].strip(), lexicon_lines)
-    lexicon_lines = map(lambda l: l.replace("{","=="), lexicon_lines)
-    lexicon_lines = map(lambda l: l.replace(":",""), lexicon_lines)
-    lexicon_lines = map(lambda l: l.replace("}",""), lexicon_lines)
-    lexicon_lines = map(lambda l: l.split("=="), lexicon_lines)
-    lexicon_lines = map(lambda l: (re.search(r'[a-z]*', l[0]).group(0), l[1]), lexicon_lines)
+    lexicon_lines = map(cleanup, lexicon_lines)
+    lexicon_lines = map(lambda l: (demacronize(re.search(r'[a-zāēīōūĀĒĪŌŪ]*', l[0]).group(0)), l[1], l[0]), lexicon_lines)
     ldict = {}
     for l in lexicon_lines:
         if l[0] not in ldict:
             form = get_word_forms(l[0])
             if form != None:
                 form = form[0]
-            ldict[form] = (l[0], l[1])
+            ldict[form] = (l[0], l[1], l[2])
     return ldict
 
 def first(f, l):
@@ -84,30 +97,42 @@ def trim_text(text):
     return text
 
 def undipth(text):
-    return text.replace("æ","ae")
+    return text.lower().replace("æ","ae").replace("ā","a").replace("ū","u").replace("ī","i").replace("ō","o").replace("ē","e").replace("j","i").replace("J","j")
 
 def lexize(text, lexicon, wordlist):
+    forms_added = []
     text = text.split()
     for word in text:
         if word[-1] in ".,;":
             wcheck = undipth(word[:-1])
         else:
             wcheck = undipth(word)
-        if re.search(r'[a-zA-Z]*', wcheck).group(0) == wcheck:
+
+        if check_word(wordlist, wcheck) != "no":
+            print(word, end=" ")
+            continue
+
+        if wcheck.lower() not in ["in", "nōn", "per"] and re.search(r'[a-zA-Z]*', wcheck).group(0) == wcheck:
             forms = get_word_forms(wcheck)
-            if wcheck not in ["in", "non"] and forms != None and forms[0] in lexicon:
-                dict_form, definition = lexicon[forms[0]]
-                mnote = '\\mpp{%s:}{%s}' % (dict_form, definition)
-                print(mnote + word, end=" ")
+            if forms != None and forms[0] in lexicon:
+                dict_form, definition, orig = lexicon[forms[0]]
+                if dict_form not in forms_added:
+                    forms_added.append(dict_form)
+                    mnote = '\\mpp{%s:}{%s}' % (orig, definition)
+                    print(mnote + word, end=" ")
+                else:
+                    print(word, end=" ")
             else:
-                if check_word(wordlist, word) == "no":
-                    print('\\mpp{????}{????}%s' % word, end=" ")
+                if check_word(wordlist, wcheck) == "no":
+                    if wcheck not in forms_added:
+                        forms_added.append(wcheck)
+                        print('\\mpp{????}{????}%s' % word, end=" ")
+                    else:
+                        print(word, end=" ")
                 else:
                     print(word, end=" ")
         else:
             print(word, end=" ")
-     
-
 
 def main():
     f = open(WORDLIST_PATH, "r")
@@ -118,26 +143,26 @@ def main():
 
     #word_list = clean_list(words)
     #pickle.dump(word_list, open("words.p", "wb"))
+
     word_list = pickle.load(open("words.p", "rb"))
 
-    sentence = " ".join(fileinput.input())
+    sentence = " ".join(fileinput.input()).replace("j","i").replace("J","I")
     lexize(sentence, ldict, word_list)
-    exit()
-    sentence = trim_text(sentence)
-    results = []
-    for w in list(set(sentence.split())):
-        try:
-            int(w)
-            continue
-        except:
-            res = check_word(word_list, w)
-            if res == "no":
-                if in_lexicon(lexicon, w):
-                    w += "*"
-                results.append(w)
-    results.sort()
-    for r in results:
-        print(r)
+    #sentence = trim_text(sentence)
+    #results = []
+    #for w in list(set(sentence.split())):
+    #    try:
+    #        int(w)
+    #        continue
+    #    except:
+    #        res = check_word(word_list, w)
+    #        if res == "no":
+    #            if in_lexicon(lexicon, w):
+    #                w += "*"
+    #            results.append(w)
+    #results.sort()
+    #for r in results:
+    #    print(r)
 
 
 if __name__ == "__main__":
